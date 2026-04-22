@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "https://universe-mobile-backend.vercel.app",
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://universe-server-delta.vercel.app/api/v1',
   timeout: 10000,
 });
 

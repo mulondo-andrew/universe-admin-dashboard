@@ -37,6 +37,12 @@ interface Building {
   code: string;
   floors: number;
   branch: string;
+  branchId: string | null;
+}
+
+interface Branch {
+  id: string;
+  name: string;
 }
 
 // Validation Schema
@@ -44,7 +50,7 @@ const buildingSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   code: z.string().min(2, "Code must be at least 2 characters"),
   floors: z.coerce.number().min(1, "Must have at least 1 floor"),
-  branch: z.string().min(2, "Branch is required"),
+  branchId: z.string().min(1, "Branch is required"),
 });
 
 type BuildingFormValues = z.infer<typeof buildingSchema>;
@@ -96,6 +102,16 @@ export default function BuildingsPage() {
     },
   });
 
+  const { data: branchesData } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => {
+      const response = await api.get("/directory/branches");
+      return (response.data?.data ?? response.data ?? []) as Branch[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const branches: Branch[] = branchesData ?? [];
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: (newBuilding: BuildingFormValues) =>
@@ -111,7 +127,7 @@ export default function BuildingsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: BuildingFormValues }) =>
-      api.put(`/admin/buildings/${id}`, data),
+      api.patch(`/admin/buildings/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["buildings"] });
       toast.success("Building updated successfully");
@@ -156,7 +172,7 @@ export default function BuildingsPage() {
     setValue("name", building.name);
     setValue("code", building.code);
     setValue("floors", building.floors);
-    setValue("branch", building.branch);
+    setValue("branchId", building.branchId ?? "");
     setIsEditOpen(true);
   };
 
@@ -341,7 +357,7 @@ export default function BuildingsPage() {
             <DataTable
               columns={columns}
               data={data?.data || []}
-              pageCount={Math.ceil((data?.total || 0) / pagination.pageSize)}
+              pageCount={Math.ceil((data?.pagination?.total || 0) / pagination.pageSize)}
               pagination={pagination}
               sorting={sorting}
               globalFilter={globalFilter}
@@ -413,16 +429,20 @@ export default function BuildingsPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="branch" className="text-sm font-semibold text-slate-700">Branch</Label>
-                <Input
-                  id="branch"
-                  {...register("branch")}
-                  placeholder="e.g. Main Campus"
-                  className="rounded-xl border-slate-200 focus-visible:ring-primary shadow-sm"
-                />
-                {errors.branch && (
+                <Label htmlFor="branchId" className="text-sm font-semibold text-slate-700">Branch</Label>
+                <select
+                  id="branchId"
+                  {...register("branchId")}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select a branch</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                {errors.branchId && (
                   <p className="text-sm text-red-500 font-medium">
-                    {errors.branch.message}
+                    {errors.branchId.message}
                   </p>
                 )}
               </div>
@@ -484,11 +504,20 @@ export default function BuildingsPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-branch" className="text-sm font-semibold text-slate-700">Branch</Label>
-                <Input id="edit-branch" {...register("branch")} className="rounded-xl border-slate-200 focus-visible:ring-primary shadow-sm" />
-                {errors.branch && (
+                <Label htmlFor="edit-branchId" className="text-sm font-semibold text-slate-700">Branch</Label>
+                <select
+                  id="edit-branchId"
+                  {...register("branchId")}
+                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Select a branch</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                {errors.branchId && (
                   <p className="text-sm text-red-500 font-medium">
-                    {errors.branch.message}
+                    {errors.branchId.message}
                   </p>
                 )}
               </div>

@@ -11,6 +11,34 @@ export interface Building {
 export const useAdminService = (api: any) => {
   return {
     /**
+     * Fetch dashboard summary stats
+     */
+    getDashboardStats: async (): Promise<ApiResponse<any>> => {
+      return await api.get('/admin/dashboard/stats');
+    },
+
+    /**
+     * Fetch dashboard growth data
+     */
+    getDashboardGrowth: async (): Promise<ApiResponse<any[]>> => {
+      return await api.get('/admin/dashboard/growth');
+    },
+
+    /**
+     * Fetch dashboard role distribution
+     */
+    getDashboardRoles: async (): Promise<ApiResponse<any[]>> => {
+      return await api.get('/admin/dashboard/roles');
+    },
+
+    /**
+     * Fetch recent activity
+     */
+    getDashboardActivity: async (): Promise<ApiResponse<any[]>> => {
+      return await api.get('/admin/dashboard/activity');
+    },
+
+    /**
      * Fetch all buildings
      */
     getBuildings: async (): Promise<ApiResponse<Building[]>> => {
@@ -73,6 +101,37 @@ export const useAdminService = (api: any) => {
     },
 
     /**
+     * Update an existing election's status
+     */
+    updateElectionStatus: async (id: string, status: string): Promise<ApiResponse<any>> => {
+      return await api.patch(`/elections/${id}/status`, { status });
+    },
+
+    /**
+     * Add a candidate to an existing election
+     */
+    addCandidate: async (
+      electionId: string,
+      data: { userId?: string; candidateType: string; optionText?: string; manifesto?: string; imageUrl?: string; displayOrder?: number }
+    ): Promise<ApiResponse<any>> => {
+      return await api.post(`/elections/${electionId}/candidates`, data);
+    },
+
+    /**
+     * Remove a candidate from an election
+     */
+    removeCandidate: async (electionId: string, candidateId: string): Promise<ApiResponse<void>> => {
+      return await api.delete(`/elections/${electionId}/candidates/${candidateId}`);
+    },
+
+    /**
+     * Fetch candidates for a specific election
+     */
+    getCandidates: async (electionId: string): Promise<ApiResponse<any[]>> => {
+      return await api.get(`/elections/${electionId}/candidates`);
+    },
+
+    /**
      * Fetch all university branches
      */
     getBranches: async (): Promise<ApiResponse<any[]>> => {
@@ -96,12 +155,66 @@ export const useAdminService = (api: any) => {
     /**
      * Fetch a paginated list of users for the directory (admin only)
      */
-    getUsers: async (params: { q?: string; page?: number; limit?: number }): Promise<ApiResponse<any[]>> => {
+    getUsers: async (params: { q?: string; page?: number; limit?: number; major?: string; clubId?: string; globalRoleId?: string; departmentId?: string; branchId?: string; isVerified?: boolean }): Promise<ApiResponse<any[]>> => {
       return await api.get('/admin/users', { params });
     },
 
     /**
-     * Example of handling file uploads (Multipart/form-data)
+     * Verify or unverify a user
+     */
+    verifyUser: async (userId: string, isVerified: boolean): Promise<ApiResponse<any>> => {
+      return await api.patch(`/admin/users/${userId}/verify`, { isVerified });
+    },
+
+    /**
+     * Fetch network analytics
+     */
+    getNetworkAnalytics: async (): Promise<ApiResponse<any>> => {
+      return await api.get('/admin/network/analytics');
+    },
+
+    /**
+     * Fetch moderation queue
+     */
+    getModerationQueue: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      contentType?: string;
+      priority?: string;
+    }): Promise<ApiResponse<{ items: any[]; total: number }>> => {
+      return await api.get('/admin/moderation/queue', { params });
+    },
+
+    /**
+     * Moderate content (approve/reject)
+     */
+    moderateContent: async (id: string, action: 'APPROVE' | 'REJECT', reason?: string): Promise<ApiResponse<void>> => {
+      return await api.post(`/admin/moderation/${id}`, { action, reason });
+    },
+
+    /**
+     * Fetch user reports
+     */
+    getReports: async (params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      reason?: string;
+      contentType?: string;
+    }): Promise<ApiResponse<{ items: any[]; total: number }>> => {
+      return await api.get('/admin/reports', { params });
+    },
+
+    /**
+     * Resolve/Dismiss report
+     */
+    resolveReport: async (id: string, action: 'RESOLVE' | 'DISMISS', resolution: string, actionTaken?: string): Promise<ApiResponse<void>> => {
+      return await api.post(`/admin/reports/${id}/resolve`, { action, resolution, actionTaken });
+    },
+
+    /**
+     * Handle file uploads (Multipart/form-data)
      */
     uploadMedia: async (file: File): Promise<ApiResponse<{ url: string }>> => {
       const formData = new FormData();

@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { io } from "socket.io-client";
+import { useApiClient } from "@/lib/api-client";
+import { useAdminService } from "@/services/admin.service";
 import {
   LineChart,
   Line,
@@ -16,76 +17,74 @@ import {
   Cell,
   Legend
 } from "recharts";
-
-const userGrowthData = [
-  { name: "Jan", users: 4000 },
-  { name: "Feb", users: 5000 },
-  { name: "Mar", users: 6500 },
-  { name: "Apr", users: 8200 },
-  { name: "May", users: 10500 },
-  { name: "Jun", users: 12450 },
-];
-
-const roleDistributionData = [
-  { name: "Students", value: 9500 },
-  { name: "Faculty", value: 1200 },
-  { name: "Staff", value: 800 },
-  { name: "Admins", value: 50 },
-];
+import { Loader2 } from "lucide-react";
 
 // Google Colors: Blue, Green, Yellow, Red
-const COLORS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335"];
-
-const recentActivity = [
-  {
-    id: 1,
-    user: "Sarah Jenkins",
-    action: "Created new course CS101",
-    time: "2 mins ago",
-    type: "success"
-  },
-  {
-    id: 2,
-    user: "Mike Ross",
-    action: "Updated building schedule",
-    time: "1 hour ago",
-    type: "info"
-  },
-  {
-    id: 3,
-    user: "System",
-    action: "Automated backup completed",
-    time: "3 hours ago",
-    type: "neutral"
-  },
-  {
-    id: 4,
-    user: "Admin",
-    action: "Approved 50 new student accounts",
-    time: "5 hours ago",
-    type: "success"
-  },
-];
+const COLORS = ["#1a73e8", "#34a853", "#fbbc04", "#ea4335", "#8b5cf6", "#ec4899"];
 
 export default function Dashboard() {
+  const api = useApiClient();
+  const adminService = useAdminService(api);
+  
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    totalUsers: 11550,
-    activeStudents: 8432,
-    serverHealth: "99.9",
-    reportsPending: 42
+    totalUsers: 0,
+    activeStudents: 0,
+    serverHealth: "0.0",
+    reportsPending: 0
   });
+  
+  const [userGrowthData, setUserGrowthData] = useState<any[]>([]);
+  const [roleDistributionData, setRoleDistributionData] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
-    const socket = io();
+    const fetchDashboardData = async () => {
+      console.log("[Dashboard] Initializing data fetch...");
+      try {
+        console.log("[Dashboard] Requesting stats, growth, roles, and activity...");
+        const [statsRes, growthRes, rolesRes, activityRes] = await Promise.all([
+          adminService.getDashboardStats(),
+          adminService.getDashboardGrowth(),
+          adminService.getDashboardRoles(),
+          adminService.getDashboardActivity()
+        ]);
+        console.log("[Dashboard] All requests completed:", { statsRes, growthRes, rolesRes, activityRes });
 
-    socket.on('dashboard_stats', (data) => {
-      setStats(data);
-    });
-
-    return () => {
-      socket.disconnect();
+        if (statsRes.success) {
+           setStats(statsRes.data);
+        }
+        if (growthRes.success) {
+           setUserGrowthData(Array.isArray(growthRes.data) ? growthRes.data : []);
+        }
+        if (rolesRes.success) {
+           setRoleDistributionData(Array.isArray(rolesRes.data) ? rolesRes.data : []);
+        }
+        if (activityRes.success) {
+           setRecentActivity(Array.isArray(activityRes.data) ? activityRes.data : []);
+        }
+      } catch (error) {
+        console.error("[Dashboard] FATAL Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
     };
+
+    fetchDashboardData();
+    
+    // Refresh data every 30 seconds
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  if (loading && userGrowthData.length === 0) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-lg font-medium">Loading Command Center...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -163,23 +162,24 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="premium-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <span className="material-symbols-rounded text-amber-600 dark:text-amber-400 text-[24px]">warning</span>
+        <Link to="/admin/safety/moderation" className="block transition-transform hover:scale-[1.02] active:scale-[0.98]">
+          <Card className="premium-card h-full">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
+                  <span className="material-symbols-rounded text-amber-600 dark:text-amber-400 text-[24px]">gavel</span>
+                </div>
+                <div className="flex items-center text-sm font-medium text-destructive bg-destructive/10 px-2.5 py-1 rounded-full">
+                  Action Required
+                </div>
               </div>
-              <div className="flex items-center text-sm font-medium text-destructive bg-destructive/10 px-2.5 py-1 rounded-full">
-                <span className="material-symbols-rounded text-[16px] mr-1">trending_up</span>
-                +8%
+              <div className="mt-5">
+                <p className="text-[14px] font-medium text-muted-foreground">Safety Queue</p>
+                <h3 className="text-[32px] font-medium text-foreground mt-1 tracking-tight font-heading">{stats.reportsPending} Pending</h3>
               </div>
-            </div>
-            <div className="mt-5">
-              <p className="text-[14px] font-medium text-muted-foreground">Reports Pending</p>
-              <h3 className="text-[32px] font-medium text-foreground mt-1 tracking-tight font-heading">{stats.reportsPending}</h3>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card className="premium-card">
           <CardContent className="p-6">

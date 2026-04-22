@@ -21,16 +21,18 @@ export default function OnboardingPage() {
   
   const [branches, setBranches] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
     username: user?.username || "",
     bio: "",
-    role: "student",
+    role: "STUDENT",
     branchId: "",
     departmentId: "",
     graduationYear: "",
+    studentId: "",
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,12 +49,14 @@ export default function OnboardingPage() {
   useEffect(() => {
     const fetchDirectoryData = async () => {
       try {
-        const [branchesRes, deptsRes] = await Promise.all([
+        const [branchesRes, deptsRes, rolesRes] = await Promise.all([
           api.get('/directory/branches'),
-          api.get('/directory/departments')
+          api.get('/directory/departments'),
+          api.get('/directory/roles')
         ]);
         setBranches(Array.isArray(branchesRes) ? branchesRes : (branchesRes as any).data || []);
         setDepartments(Array.isArray(deptsRes) ? deptsRes : (deptsRes as any).data || []);
+        setRoles(Array.isArray(rolesRes) ? rolesRes : (rolesRes as any).data || []);
       } catch (err) {
         console.error("Failed to fetch directory data", err);
       }
@@ -90,20 +94,24 @@ export default function OnboardingPage() {
   const handleComplete = async () => {
     setLoading(true);
     try {
-      // Prepare data for backend
+      // Prepare data for backend matching auth.controller.ts register schema
       const submissionData = {
-        ...formData,
-        name: `${formData.firstName} ${formData.lastName}`.trim(),
         role: formData.role.toUpperCase(), // Backend expects uppercase Role enum
-        graduationYear: formData.graduationYear ? parseInt(formData.graduationYear) : undefined,
+        studentId: formData.role === "STUDENT" ? formData.studentId || `STU-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
+        branchId: formData.branchId,
+        departmentId: formData.departmentId,
+        username: formData.username,
+        bio: formData.bio,
+        academicYear: formData.graduationYear ? parseInt(formData.graduationYear) : undefined,
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
       };
 
-      await api.patch('/users/me', submissionData);
+      await api.post('/auth/register', submissionData);
       toast.success("Profile completed successfully!");
       queryClient.invalidateQueries({ queryKey: ['user', 'me'] });
       navigate("/");
-    } catch (err) {
-      toast.error("Failed to complete profile");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to complete profile");
       console.error(err);
     } finally {
       setLoading(false);
@@ -191,10 +199,18 @@ export default function OnboardingPage() {
                 <div className="space-y-2">
                   <Label htmlFor="role">Primary Role</Label>
                   <select id="role" value={formData.role} onChange={handleChange} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                    <option value="student">Student</option>
-                    <option value="faculty">Faculty</option>
-                    <option value="alumni">Alumni</option>
-                    <option value="staff">Staff</option>
+                    {roles.length > 0 ? (
+                      roles.map(r => (
+                        <option key={r.id} value={r.name}>{r.name.charAt(0) + r.name.slice(1).toLowerCase().replace(/_/g, ' ')}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="STUDENT">Student</option>
+                        <option value="FACULTY">Faculty</option>
+                        <option value="ALUMNI">Alumni</option>
+                        <option value="STAFF">Staff</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -222,6 +238,13 @@ export default function OnboardingPage() {
                   <Label htmlFor="graduationYear">Graduation Year (Optional)</Label>
                   <Input id="graduationYear" type="number" value={formData.graduationYear} onChange={handleChange} placeholder="e.g. 2026" />
                 </div>
+
+                {formData.role === "STUDENT" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="studentId">Student ID</Label>
+                    <Input id="studentId" value={formData.studentId} onChange={handleChange} placeholder="e.g. STU-123456" />
+                  </div>
+                )}
 
                 <div className="flex gap-3 mt-4">
                   <Button variant="outline" className="w-1/3" onClick={handleBack}>Back</Button>

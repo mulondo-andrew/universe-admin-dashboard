@@ -20,7 +20,7 @@ export interface ApiResponse<T = any> {
 
 // 2. Create the Base Axios Instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://universe-mobile-backend.vercel.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://universe-server-delta.vercel.app/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },

@@ -3,93 +3,76 @@ import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/clerk-react";
 import { useUser } from "@/hooks/useUser";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/components/theme-provider";
-import { io } from "socket.io-client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { io } from "socket.io-client";
 
 const navigationGroups = [
   {
-    title: "Overview",
+    title: "System Control",
     items: [
-      { name: "Dashboard", href: "/", icon: "dashboard" },
-    ]
+      { name: "Admin Dashboard", href: "/", icon: "dashboard", roles: ["admin"] },
+      { name: "Universe State", href: "/admin/system/state", icon: "monitoring", roles: ["admin"] },
+      { name: "Kill Switch", href: "/admin/system/kill-switch", icon: "emergency_home", roles: ["admin"] },
+    ],
   },
   {
-    title: "Personal",
+    title: "Identity & Trust",
     items: [
-      { name: "My Profile", href: "/user/profile", icon: "person" },
-      { name: "Network", href: "/user/network", icon: "group_add" },
-      { name: "Settings", href: "/user/settings", icon: "settings" },
-    ]
+      { name: "User Directory", href: "/admin/identity/directory", icon: "group", roles: ["admin"] },
+      { name: "Digital ID Center", href: "/admin/identity/digital-id", icon: "fingerprint", roles: ["admin"] },
+      { name: "Access Control (RBAC)", href: "/admin/identity/rbac", icon: "admin_panel_settings", roles: ["admin"] },
+      { name: "Network Hub", href: "/admin/identity/network", icon: "hub", roles: ["admin"] },
+    ],
   },
   {
-    title: "Identity",
+    title: "Campus Operations",
     items: [
-      { name: "User Directory", href: "/admin/identity/directory", icon: "group" },
-      { name: "Role Management", href: "/admin/identity/rbac", icon: "manage_accounts" },
-      { name: "Digital ID", href: "/admin/identity/digital-id", icon: "badge" },
-    ]
-  },
-  {
-    title: "Academic",
-    items: [
-      { name: "Campus Map", href: "/admin/campus/buildings", icon: "domain" },
-      { name: "Academic Manager", href: "/admin/academic/manager", icon: "school" },
-      { name: "Registrar", href: "/admin/academic/registrar", icon: "history_edu" },
-      { name: "Scheduling", href: "/admin/academic/scheduling", icon: "calendar_month" },
-    ]
+      { name: "Buildings & Infrastructure", href: "/admin/campus/buildings", icon: "domain", roles: ["admin"] },
+      { name: "Academic Manager", href: "/admin/academic/manager", icon: "school", roles: ["admin"] },
+      { name: "Registrar Hub", href: "/admin/academic/registrar", icon: "how_to_reg", roles: ["admin"] },
+    ],
   },
   {
     title: "Governance",
     items: [
-      { name: "Clubs & Guilds", href: "/admin/governance/clubs", icon: "diversity_3" },
-      { name: "Election Center", href: "/admin/governance/elections", icon: "how_to_vote" },
-    ]
+      { name: "Election Center", href: "/admin/governance/elections", icon: "ballot", roles: ["admin"] },
+      { name: "Clubs & Guilds", href: "/admin/governance/clubs", icon: "diversity_3", roles: ["admin"] },
+    ],
   },
   {
-    title: "Safety",
+    title: "Safety & Integrity",
     items: [
-      { name: "Moderation Queue", href: "/admin/safety/moderation", icon: "gavel" },
-      { name: "Crisis Response", href: "/admin/safety/crisis", icon: "emergency" },
-      { name: "Content Filters", href: "/admin/safety/filters", icon: "filter_alt" },
-    ]
+      { name: "Moderation Queue", href: "/admin/safety/moderation", icon: "gavel", roles: ["admin"] },
+      { name: "Crisis Response", href: "/admin/safety/crisis", icon: "warning", roles: ["admin"] },
+    ],
   },
-  {
-    title: "Engagement",
-    items: [
-      { name: "Announcements", href: "/admin/engagement/announcements", icon: "campaign" },
-      { name: "Marketplace", href: "/admin/engagement/marketplace", icon: "storefront" },
-      { name: "Gamification", href: "/admin/engagement/gamification", icon: "social_leaderboard" },
-    ]
-  },
-  {
-    title: "System",
-    items: [
-      { name: "Kill Switch", href: "/admin/system/kill-switch", icon: "power_settings_new" },
-      { name: "Universe State", href: "/admin/system/state", icon: "database" },
-      { name: "Device Registry", href: "/admin/system/devices", icon: "devices" },
-    ]
-  }
 ];
 
 export default function ProtectedLayout() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, clerkUser } = useUser();
-  const { signOut } = useClerk();
-  const { theme, setTheme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    const socket = io();
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'https://universe-server-delta.vercel.app';
+    const socket = io(backendUrl);
 
     socket.on('critical_alert', (alert) => {
       toast.error(`Critical Alert: ${alert.message}`, {
         description: alert.time,
         duration: 10000,
       });
-      setUnreadAlerts(prev => prev + 1);
     });
 
     return () => {
@@ -97,139 +80,133 @@ export default function ProtectedLayout() {
     };
   }, []);
 
-  const handleLogout = () => {
-    signOut(() => navigate("/login"));
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
   };
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-muted/20 flex font-sans text-foreground">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[280px] bg-muted/20 transform transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0`}
+        className={`${
+          isSidebarOpen ? "w-[280px]" : "w-0"
+        } bg-card border-r border-border flex flex-col transition-all duration-300 ease-in-out relative z-30`}
       >
-        <div className="h-full flex flex-col">
-          <div className="h-16 flex items-center px-6 mt-2">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="material-symbols-rounded text-primary-foreground text-[18px]">language</span>
-              </div>
-              <h1 className="text-[22px] font-medium text-foreground tracking-tight font-heading">
-                UniVerse
-              </h1>
-            </div>
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <span className="material-symbols-rounded text-white filled">rocket_launch</span>
           </div>
+          <div>
+            <h1 className="font-heading font-black text-xl tracking-tighter text-foreground">
+              UniVerse<span className="text-primary text-[10px] ml-1 uppercase tracking-widest font-bold">Admin</span>
+            </h1>
+          </div>
+        </div>
 
-          <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto scrollbar-hide">
-            {navigationGroups.map((group) => (
-              <div key={group.title}>
-                <h3 className="px-4 text-[13px] font-medium text-muted-foreground mb-2">
-                  {group.title}
-                </h3>
-                <div className="space-y-0.5">
-                  {group.items.map((item) => {
-                    const isActive =
-                      location.pathname === item.href ||
-                      (item.href !== "/" && location.pathname.startsWith(item.href));
-                    return (
-                      <Link
-                        key={item.name}
-                        to={item.href}
-                        className={`group flex items-center px-4 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 ${
-                          isActive
-                            ? "bg-primary/15 text-primary"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                        }`}
+        <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto scrollbar-hide">
+          {navigationGroups.map((group) => (
+            <div key={group.title}>
+              <h3 className="px-4 text-[11px] font-bold text-muted-foreground mb-2 uppercase tracking-widest">
+                {group.title}
+              </h3>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive =
+                    location.pathname === item.href ||
+                    (item.href !== "/" && location.pathname.startsWith(item.href));
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`group flex items-center px-4 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 ${
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`material-symbols-rounded mr-4 text-[20px] transition-colors duration-200 ${isActive ? "text-white filled" : "text-muted-foreground group-hover:text-foreground"}`}
                       >
-                        <span
-                          className={`material-symbols-rounded mr-4 text-[20px] transition-colors duration-200 ${isActive ? "text-primary filled" : "text-muted-foreground group-hover:text-accent-foreground"}`}
-                        >
-                          {item.icon}
-                        </span>
-                        {item.name}
-                      </Link>
-                    );
-                  })}
-                </div>
+                        {item.icon}
+                      </span>
+                      {item.name}
+                    </Link>
+                  );
+                })}
               </div>
-            ))}
-          </nav>
+            </div>
+          ))}
+        </nav>
 
-          <div className="p-4 bg-muted/20">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground hover:text-accent-foreground hover:bg-accent rounded-full h-12 text-[14px] font-medium px-4"
-              onClick={handleLogout}
-            >
-              <span className="material-symbols-rounded mr-4 text-[20px]">logout</span>
-              Sign out
-            </Button>
+        <div className="p-4 border-t border-border bg-muted/30">
+          <div className="flex items-center gap-3 p-2 bg-card rounded-2xl border border-border">
+            <Avatar className="h-9 w-9 border border-border">
+              <AvatarImage src={user?.imageUrl} />
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold uppercase">
+                {user?.name?.slice(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{user?.name}</p>
+              <p className="text-[10px] font-bold text-primary uppercase tracking-tighter">
+                System Administrator
+              </p>
+            </div>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background rounded-tl-3xl shadow-sm border-l border-t border-border mt-2">
-        {/* Topbar */}
-        <header className="h-16 flex items-center justify-between px-6 bg-background border-b border-border/50 sticky top-0 z-40">
-          <div className="flex items-center flex-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden mr-4 text-muted-foreground hover:bg-accent rounded-full"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-            >
-              <span className="material-symbols-rounded text-[24px]">menu</span>
-            </Button>
-            
-            <div className="hidden md:flex items-center px-4 py-2.5 bg-muted rounded-full w-full max-w-[720px] focus-within:bg-background focus-within:shadow-[0_1px_3px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.24)] transition-all border border-transparent focus-within:border-border">
-              <span className="material-symbols-rounded text-muted-foreground mr-3 text-[20px]">search</span>
-              <input 
-                type="text" 
-                placeholder="Search anything (Cmd+K)..." 
-                className="bg-transparent border-none outline-none text-[15px] w-full placeholder:text-muted-foreground text-foreground font-sans"
-              />
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 ml-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="relative text-muted-foreground hover:bg-accent rounded-full h-10 w-10"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
-              <span className="material-symbols-rounded text-[24px]">
-                {theme === "dark" ? "light_mode" : "dark_mode"}
-              </span>
-            </Button>
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:bg-accent rounded-full h-10 w-10">
-              <span className="material-symbols-rounded text-[24px]">help</span>
-            </Button>
-            <Link to="/user/settings">
-              <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:bg-accent rounded-full h-10 w-10">
-                <span className="material-symbols-rounded text-[24px]">settings</span>
-              </Button>
-            </Link>
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:bg-accent rounded-full h-10 w-10 mr-2" onClick={() => setUnreadAlerts(0)}>
-              <span className="material-symbols-rounded text-[24px]">notifications</span>
-              {unreadAlerts > 0 && (
-                <span className="absolute top-2 right-2.5 w-2 h-2 bg-destructive rounded-full border-2 border-background"></span>
-              )}
-            </Button>
-            
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium text-sm cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-primary transition-all overflow-hidden">
-              {clerkUser?.imageUrl ? (
-                <img src={clerkUser.imageUrl} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                clerkUser?.firstName?.charAt(0) || "U"
-              )}
-            </div>
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="h-16 border-b border-border bg-background/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="rounded-full"
+          >
+            <span className="material-symbols-rounded">
+              {isSidebarOpen ? "menu_open" : "menu"}
+            </span>
+          </Button>
+
+          <div className="flex items-center gap-4">
+             <div className="hidden sm:flex items-center px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-2" />
+                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Backend Live</span>
+             </div>
+             
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
+                   <span className="material-symbols-rounded text-muted-foreground">settings</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 rounded-2xl mt-2 border-border shadow-xl">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/user/profile")} className="rounded-lg cursor-pointer">
+                  <span className="material-symbols-rounded mr-2 text-[20px]">person</span>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/user/settings")} className="rounded-lg cursor-pointer">
+                  <span className="material-symbols-rounded mr-2 text-[20px]">settings</span>
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive rounded-lg cursor-pointer focus:bg-destructive/10 focus:text-destructive">
+                  <span className="material-symbols-rounded mr-2 text-[20px]">logout</span>
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
         {/* Main Area */}
-        <main className="flex-1 overflow-y-auto p-8 bg-background">
-          <div className="max-w-[1200px] mx-auto">
+        <main className="flex-1 overflow-y-auto p-8 bg-background relative">
+          <div className="max-w-[1400px] mx-auto pb-20">
             <Outlet />
           </div>
         </main>

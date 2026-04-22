@@ -117,7 +117,7 @@ export default function UserDetailPage() {
           </Card>
 
           <div className="flex gap-4">
-            <Button className="flex-1 rounded-full bg-primary" onClick={() => toast.info("Role management coming soon")}>
+            <Button className="flex-1 rounded-full bg-primary" onClick={() => navigate('/admin/identity/rbac')}>
               <span className="material-symbols-rounded mr-2">shield</span>
               Modify Access
             </Button>

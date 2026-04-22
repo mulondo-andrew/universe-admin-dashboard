@@ -10,7 +10,7 @@ export const useBuildings = (page: number = 1, limit: number = 10) => {
   // Fetch Buildings
   const query = useQuery({
     queryKey: ['buildings', page, limit],
-    queryFn: () => adminService.getBuildings(page, limit),
+    queryFn: () => adminService.getBuildings(),
   });
 
   // Create Building

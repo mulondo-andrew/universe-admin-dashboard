@@ -114,3 +114,12 @@
 .text-balance {
   text-wrap: balance;
 }
+
+/* Dynamic bar widths via CSS custom properties */
+.bar-fill-dynamic {
+  width: var(--bar-pct, 0%);
+}
+
+.bar-fill-dynamic-white {
+  width: var(--bar-pct, 0%);
+}
